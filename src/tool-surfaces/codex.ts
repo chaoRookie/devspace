@@ -241,6 +241,7 @@ function registerCodexProcessTools(context: ToolRegistrationContext): void {
             command: cmd,
             cwd,
             workspaceRoot: workspace.root,
+            sandbox: config.shellSandbox,
             tty,
             columns,
             rows,

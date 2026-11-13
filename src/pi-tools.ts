@@ -11,6 +11,7 @@ import {
   type WriteToolInput,
   type AgentToolResult,
 } from "@earendil-works/pi-coding-agent";
+import { createShellSandboxBashOperations, isShellSandboxed, type ShellSandboxTarget } from "./shell-sandbox.js";
 
 type McpContent = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
 
@@ -22,6 +23,10 @@ export type ToolResponse<TDetails = unknown> = {
 
 interface ToolContext {
   cwd: string;
+}
+
+interface ShellToolContext extends ToolContext {
+  sandbox?: ShellSandboxTarget;
 }
 
 function toMcpContent(result: AgentToolResult<WireInput>): McpContent[] {
@@ -89,8 +94,11 @@ export async function editFileTool(input: EditToolInput, context: ToolContext): 
   }, context);
 }
 
-export async function runShellTool(input: BashToolInput, context: ToolContext): Promise<ToolResponse> {
-  const tool = createBashTool(context.cwd);
+export async function runShellTool(input: BashToolInput, context: ShellToolContext): Promise<ToolResponse> {
+  const tool = isShellSandboxed(context.sandbox)
+    ? createBashTool(context.cwd, { operations: createShellSandboxBashOperations(context.sandbox) })
+    : createBashTool(context.cwd);
+
   const timeout = input.timeout === undefined ? 30 : Math.min(input.timeout, 300);
 
   return runTool((params) => tool.execute("run_shell", params), {

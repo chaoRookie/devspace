@@ -221,6 +221,7 @@ function registerShellTool(context: ToolRegistrationContext): void {
 
       const response = await runShellTool(input, {
         cwd,
+        sandbox: { workspaceRoot: workspace.root, settings: config.shellSandbox },
       });
 
       if (response.isError) {

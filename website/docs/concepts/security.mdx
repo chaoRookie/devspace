@@ -12,10 +12,40 @@ machine. The model is simple:
 - every action happens through an explicit, logged tool call.
 
 :::warning
-File tools enforce allowed-root containment. **Shell commands do not.** They
-run with your user account's authority. Never assume shell execution is
-sandboxed because file tools are.
+File tools enforce allowed-root containment. **Shell commands do not unless
+`shell.sandbox` is `"workspace"`.** With the default `"off"` they run with your
+user account's authority. Never assume shell execution is sandboxed because
+file tools are.
 :::
+
+## Shell sandbox
+
+Set `shell.sandbox` to `"workspace"` to run `bash` and `exec_command` inside an
+OS-level sandbox. DevSpace does not parse the command. The operating system
+checks every file the process tree opens, so a path hidden in a script, a
+`cd ..`, an environment variable, or a symlink is held to the same rules as a
+path written in the command.
+
+| | Sandboxed commands |
+| --- | --- |
+| Write | The workspace root and the system temporary directory. `.env` and `.env.local` in the workspace root stay read-only. In a linked Git worktree, the repository's Git directory is writable too. |
+| Read | Everything outside your home directory, plus the workspace, `~/.gitconfig`, `~/.config/git`, toolchains found on `PATH` under your home directory, and `shell.allowRead`. The rest of your home directory is hidden, including `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config/gcloud`, `~/.netrc`, and `~/.npmrc`. |
+| Network | Only `shell.allowedDomains`, through a local proxy. |
+
+The sandbox uses `sandbox-exec` on macOS and bubblewrap on Linux through
+`@anthropic-ai/sandbox-runtime`. It is a process wrapper, not a container or a
+virtual machine. On Linux it added about 33 ms to a trivial command in our
+measurement (median of 20 runs, 37 ms sandboxed against 4.5 ms unsandboxed);
+macOS has not been measured yet.
+
+There is no unsandboxed retry. If the sandbox cannot start, or the platform is
+not supported, the command fails with the reason and is not run. Windows is not
+supported by this setting.
+
+Limits to know: sandboxed commands run as your user and share your kernel, they
+can read system paths outside your home directory, and anything in the
+workspace can be sent to an allowed domain. The macOS path has automated tests
+but has not been exercised on a Mac by the maintainers of this change.
 
 ## Allowed roots
 

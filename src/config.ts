@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { expandHomePath } from "./roots.js";
 import type { LoggingConfig } from "./logger.js";
 import type { OAuthConfig } from "./oauth-provider.js";
+import type { ShellSandboxSettings } from "./shell-sandbox.js";
 import { devspaceAgentsDir, devspaceSkillsDir, loadDevspaceFiles, type DevspaceFiles } from "./user-config.js";
 import {
   disabledSubagentsConfig,
@@ -30,6 +31,7 @@ export interface ServerConfig extends AgentConfig {
   /** Explicit `tools.mode`; when set it wins over host detection. */
   toolSurfaceOverride: "claude" | "codex" | undefined;
   experimentalCodeMode: boolean;
+  shellSandbox: ShellSandboxSettings;
   uiEnabled: boolean;
   activity: { enabled: boolean; maxTurns: number };
   artifactsEnabled: boolean;
@@ -104,6 +106,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     publicBaseUrl,
     toolSurfaceOverride: stored.tools.mode,
     experimentalCodeMode: env.DEVSPACE_EXPERIMENTAL_CODE_MODE === "1",
+    shellSandbox: {
+      mode: stored.shell.sandbox,
+      allowRead: normalizePaths(stored.shell.allowRead),
+      allowedDomains: stored.shell.allowedDomains,
+    },
     uiEnabled: stored.ui.enabled,
     activity: stored.activity,
     artifactsEnabled: stored.artifacts.enabled,
