@@ -124,9 +124,27 @@
             "off"
           ]
         },
+        "network": {
+          "default": "full",
+          "description": "\"full\" leaves sandboxed commands with unrestricted network access. \"allowlist\" limits them to allowedDomains.",
+          "type": "string",
+          "enum": [
+            "full",
+            "allowlist"
+          ]
+        },
         "allowRead": {
           "default": [],
           "description": "Extra paths sandboxed commands may read, in addition to the workspace and detected toolchains.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allowWrite": {
+          "default": [],
+          "description": "Extra paths sandboxed commands may read and write, in addition to the workspace and the temp directory.",
           "type": "array",
           "items": {
             "type": "string",
@@ -142,7 +160,7 @@
             "pypi.org",
             "files.pythonhosted.org"
           ],
-          "description": "Domains sandboxed commands may reach. Everything else is blocked.",
+          "description": "Domains sandboxed commands may reach when network is \"allowlist\".",
           "type": "array",
           "items": {
             "type": "string",

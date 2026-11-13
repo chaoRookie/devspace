@@ -108,7 +108,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     experimentalCodeMode: env.DEVSPACE_EXPERIMENTAL_CODE_MODE === "1",
     shellSandbox: {
       mode: stored.shell.sandbox,
+      network: stored.shell.network,
       allowRead: normalizePaths(stored.shell.allowRead),
+      allowWrite: normalizePaths(stored.shell.allowWrite),
       allowedDomains: stored.shell.allowedDomains,
     },
     uiEnabled: stored.ui.enabled,

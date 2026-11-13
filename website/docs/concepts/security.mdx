@@ -28,9 +28,9 @@ path written in the command.
 
 | | Sandboxed commands |
 | --- | --- |
-| Write | The workspace root and the system temporary directory. `.env` and `.env.local` in the workspace root stay read-only. In a linked Git worktree, the repository's Git directory is writable too. |
+| Write | The workspace root, the system temporary directory, and `shell.allowWrite`. `.env` and `.env.local` in the workspace root stay read-only. In a linked Git worktree, the repository's Git directory is writable too. |
 | Read | Everything outside your home directory, plus the workspace, `~/.gitconfig`, `~/.config/git`, toolchains found on `PATH` under your home directory, and `shell.allowRead`. The rest of your home directory is hidden, including `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config/gcloud`, `~/.netrc`, and `~/.npmrc`. |
-| Network | Only `shell.allowedDomains`, through a local proxy. |
+| Network | Unrestricted with the default `shell.network: "full"`. With `"allowlist"`, only `shell.allowedDomains`, through a local proxy. |
 
 The sandbox uses `sandbox-exec` on macOS and bubblewrap on Linux through
 `@anthropic-ai/sandbox-runtime`. It is a process wrapper, not a container or a
@@ -39,12 +39,14 @@ of 20 runs, 14.5 ms sandboxed against 2.3 ms unsandboxed) and about 33 ms on
 Linux (37 ms against 4.5 ms).
 
 There is no unsandboxed retry. If the sandbox cannot start, or the platform is
-not supported, the command fails with the reason and is not run. Windows is not
-supported by this setting.
+not supported, the command fails with the reason and is not run. Native Windows
+is not supported by this setting; run DevSpace inside WSL there, where the Linux
+sandbox applies.
 
 Limits to know: sandboxed commands run as your user and share your kernel, they
-can read system paths outside your home directory, and anything in the
-workspace can be sent to an allowed domain.
+can read system paths outside your home directory, and with full network
+anything they can read can be sent anywhere. Use `shell.network: "allowlist"`
+to limit where it can go.
 
 ## Allowed roots
 

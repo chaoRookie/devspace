@@ -18,7 +18,9 @@ import {
 
 export interface ShellSandboxSettings {
   mode: "workspace" | "off";
+  network: "full" | "allowlist";
   allowRead: string[];
+  allowWrite: string[];
   allowedDomains: string[];
 }
 
@@ -34,7 +36,13 @@ export interface WrappedShellCommand {
   release: () => void;
 }
 
-export const SHELL_SANDBOX_OFF: ShellSandboxSettings = { mode: "off", allowRead: [], allowedDomains: [] };
+export const SHELL_SANDBOX_OFF: ShellSandboxSettings = {
+  mode: "off",
+  network: "full",
+  allowRead: [],
+  allowWrite: [],
+  allowedDomains: [],
+};
 
 let initialization: Promise<void> | undefined;
 
@@ -52,6 +60,7 @@ export function shellSandboxFilesystem(
   const canonicalHome = canonical(home);
   const gitDirectory = linkedGitDirectory(root);
   const temporary = canonical(tmpdir());
+  const extraWrite = settings.allowWrite.map(canonical);
 
   return {
     denyRead: [canonicalHome, ...protectedHomePaths(canonicalHome)],
@@ -62,8 +71,9 @@ export function shellSandboxFilesystem(
       join(canonicalHome, ".config", "git"),
       ...toolchainPaths(environment, canonicalHome),
       ...settings.allowRead.map(canonical),
+      ...extraWrite,
     ]),
-    allowWrite: unique([root, temporary, ...(gitDirectory ? [gitDirectory] : [])]),
+    allowWrite: unique([root, temporary, ...(gitDirectory ? [gitDirectory] : []), ...extraWrite]),
     denyWrite: [join(root, ".env"), join(root, ".env.local")],
   };
 }
@@ -122,7 +132,8 @@ async function ensureInitialized(settings: ShellSandboxSettings): Promise<void> 
   if (process.platform === "win32" || !SandboxManager.isSupportedPlatform()) {
     throw new Error(
       `shell.sandbox is "workspace", but the shell sandbox does not support ${process.platform}. ` +
-        "Commands are not run without it; set shell.sandbox to \"off\" to run them uncontained.",
+        "Commands are not run without it. On Windows, run DevSpace inside WSL; " +
+        "otherwise set shell.sandbox to \"off\" to run them uncontained.",
     );
   }
 
@@ -143,7 +154,11 @@ async function ensureInitialized(settings: ShellSandboxSettings): Promise<void> 
 }
 
 function networkConfig(settings: ShellSandboxSettings): SandboxRuntimeConfig["network"] {
-  return { allowedDomains: [...settings.allowedDomains], deniedDomains: [], strictAllowlist: true };
+  const network = { allowedDomains: [...settings.allowedDomains], deniedDomains: [], strictAllowlist: true };
+
+  if (settings.network === "full") Reflect.deleteProperty(network, "allowedDomains");
+
+  return network;
 }
 
 function runWrapped(

@@ -30,6 +30,8 @@ test("an empty config dir loads secure-by-default server config", (t) => {
   assert.deepEqual(defaults.allowedHosts, ["localhost", "127.0.0.1", "::1"]);
   assert.equal(defaults.experimentalCodeMode, false);
   assert.equal(defaults.shellSandbox.mode, "off");
+  assert.equal(defaults.shellSandbox.network, "full");
+  assert.deepEqual(defaults.shellSandbox.allowWrite, []);
   assert.deepEqual(defaults.shellSandbox.allowRead, []);
   assert.ok(defaults.shellSandbox.allowedDomains.includes("github.com"));
   assert.equal(defaults.artifactsEnabled, false);
@@ -46,13 +48,21 @@ test("the shell section turns on the workspace sandbox and resolves its read pat
 
   writeDevspaceConfig({
     configVersion: 1,
-    shell: { sandbox: "workspace", allowRead: ["~/.cache/pip"], allowedDomains: ["example.com"] },
+    shell: {
+      sandbox: "workspace",
+      network: "allowlist",
+      allowRead: ["~/.cache/pip"],
+      allowWrite: ["~/.npm"],
+      allowedDomains: ["example.com"],
+    },
   }, env);
   const configured = loadConfig(env);
 
   assert.deepEqual(configured.shellSandbox, {
     mode: "workspace",
+    network: "allowlist",
     allowRead: [resolve(homedir(), ".cache/pip")],
+    allowWrite: [resolve(homedir(), ".npm")],
     allowedDomains: ["example.com"],
   });
 });

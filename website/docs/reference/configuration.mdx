@@ -92,14 +92,16 @@ metadata but keeps `show_changes`.
 `shell.sandbox` is `"off"` by default: `bash` and `exec_command` run with your
 user account's authority. Set it to `"workspace"` to contain them in an OS
 sandbox scoped to the workspace root. `shell.allowRead` lists extra paths
-sandboxed commands may read. `shell.allowedDomains` lists the only domains they
-may reach. See the [security model](/concepts/security#shell-sandbox).
+sandboxed commands may read, and `shell.allowWrite` lists extra paths they may
+read and write, such as a package cache. `shell.network` is `"full"` by default;
+set it to `"allowlist"` to limit sandboxed commands to `shell.allowedDomains`.
+On Windows, run DevSpace inside WSL to use the sandbox. See the [security model](/concepts/security#shell-sandbox).
 
 ```jsonc
 "shell": {
   "sandbox": "workspace",
-  "allowRead": ["~/.cache/pip"],
-  "allowedDomains": ["github.com", "registry.npmjs.org"]
+  "network": "full",
+  "allowWrite": ["~/.npm"]
 }
 ```
 

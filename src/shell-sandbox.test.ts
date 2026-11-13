@@ -12,7 +12,14 @@ import {
   type ShellSandboxSettings,
 } from "./shell-sandbox.js";
 
-const settings: ShellSandboxSettings = { mode: "workspace", allowRead: [], allowedDomains: [] };
+const settings: ShellSandboxSettings = {
+  mode: "workspace",
+  network: "allowlist",
+  allowRead: [],
+  allowWrite: [],
+  allowedDomains: [],
+};
+
 const node = JSON.stringify(process.execPath);
 
 async function sandboxAvailable(): Promise<boolean> {
@@ -174,6 +181,32 @@ test("exec_command with a terminal is contained too", { skip }, async (t) => {
   assert.match(output, /inside-ok/);
 });
 
+test("a path listed in allowWrite is writable from the sandbox", { skip }, async (t) => {
+  const { workspace, outside } = fixture(t);
+
+  const response = await runShellTool(
+    { command: `echo cached > ${JSON.stringify(join(outside, "cache.txt"))}` },
+    { cwd: workspace, sandbox: { workspaceRoot: workspace, settings: { ...settings, allowWrite: [outside] } } },
+  );
+
+  assert.equal(response.isError, undefined);
+  assert.equal(existsSync(join(outside, "cache.txt")), true);
+});
+
+test("full network keeps the filesystem contained without a network allowlist", { skip }, async (t) => {
+  const { workspace, outside } = fixture(t);
+
+  const response = await runShellTool(
+    { command: `echo x > ${JSON.stringify(join(outside, "full.txt"))}; echo inside-ok` },
+    { cwd: workspace, sandbox: { workspaceRoot: workspace, settings: { ...settings, network: "full" } } },
+  );
+
+  const output = response.content.map((content) => (content.type === "text" ? content.text : "")).join("");
+
+  assert.equal(existsSync(join(outside, "full.txt")), false);
+  assert.match(output, /inside-ok/);
+});
+
 test("with the sandbox off, commands run with the user's full authority", async (t) => {
   const { workspace, outside } = fixture(t);
   const sessions = new ProcessSessionManager();
@@ -205,7 +238,7 @@ test("the policy writes only the workspace and hides the home directory", (t) =>
 
   const policy = shellSandboxFilesystem(
     workspace,
-    { ...settings, allowRead: [join(home, "extra")] },
+    { ...settings, allowRead: [join(home, "extra")], allowWrite: [join(home, "cache")] },
     { PATH: `${join(home, ".toolchain", "bin")}:${join(home, "bin")}:/usr/bin` },
   );
 
@@ -216,6 +249,9 @@ test("the policy writes only the workspace and hides the home directory", (t) =>
   assert.ok(policy.allowRead?.includes(join(home, ".toolchain")));
   assert.ok(policy.allowRead?.includes(join(home, "bin")));
   assert.equal(policy.allowRead?.includes(home), false);
+  assert.ok(policy.allowRead?.includes(join(home, "cache")));
+  assert.ok(policy.allowWrite.includes(join(home, "cache")));
+  assert.equal(policy.allowWrite.includes(join(home, "extra")), false);
   assert.deepEqual(policy.allowWrite.slice(0, 1), [workspace]);
   assert.deepEqual(policy.denyWrite, [join(workspace, ".env"), join(workspace, ".env.local")]);
 });
