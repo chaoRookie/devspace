@@ -34,9 +34,9 @@ path written in the command.
 
 The sandbox uses `sandbox-exec` on macOS and bubblewrap on Linux through
 `@anthropic-ai/sandbox-runtime`. It is a process wrapper, not a container or a
-virtual machine. On Linux it added about 33 ms to a trivial command in our
-measurement (median of 20 runs, 37 ms sandboxed against 4.5 ms unsandboxed);
-macOS has not been measured yet.
+virtual machine. For a trivial command it added about 12 ms on macOS (median
+of 20 runs, 14.5 ms sandboxed against 2.3 ms unsandboxed) and about 33 ms on
+Linux (37 ms against 4.5 ms).
 
 There is no unsandboxed retry. If the sandbox cannot start, or the platform is
 not supported, the command fails with the reason and is not run. Windows is not
@@ -44,8 +44,7 @@ supported by this setting.
 
 Limits to know: sandboxed commands run as your user and share your kernel, they
 can read system paths outside your home directory, and anything in the
-workspace can be sent to an allowed domain. The macOS path has automated tests
-but has not been exercised on a Mac by the maintainers of this change.
+workspace can be sent to an allowed domain.
 
 ## Allowed roots
 
