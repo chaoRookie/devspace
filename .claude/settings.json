@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(touch *)",
+      "Bash(cd *)",
+      "Bash(sed *)",
+      "Bash(sort *)",
+      "Bash(jq *)",
+      "Bash(diff *)",
+      "Bash(date *)",
+      "Bash(echo *)",
+      "Bash(TZ=Asia/Shanghai date *)",
+      "Bash(python3 .claude/skills/feifei-ism/scripts/build.py *)",
+      "Bash(python3 .claude/skills/feifei-ism/scripts/sprite.py *)",
+      "Bash(python3 .claude/skills/paper-playground/scripts/compose.py *)",
+      "Bash(python3 .claude/skills/jiepou/scripts/assemble.py *)",
+      "Bash(python3 design/ledger/gen.py *)",
+      "Edit",
+      "Write"
+    ]
+  }
+}

@@ -30,6 +30,29 @@ const toolsConfigSchema = z.object({
   }),
 }).strict().prefault({});
 
+const shellConfigSchema = z.object({
+  sandbox: z.enum(["workspace", "off"]).default("off").meta({
+    description:
+      "\"workspace\" runs bash and exec_command inside an OS sandbox that can write only the workspace and cannot read the rest of the home directory. \"off\" runs them with the local user's full authority.",
+  }),
+  network: z.enum(["full", "allowlist"]).default("full").meta({
+    description:
+      "\"full\" leaves sandboxed commands with unrestricted network access. \"allowlist\" limits them to allowedDomains.",
+  }),
+  allowRead: z.array(z.string().trim().min(1)).default([])
+    .describe("Extra paths sandboxed commands may read, in addition to the workspace and detected toolchains."),
+  allowWrite: z.array(z.string().trim().min(1)).default([])
+    .describe("Extra paths sandboxed commands may read and write, in addition to the workspace and the temp directory."),
+  allowedDomains: z.array(z.string().trim().min(1)).default([
+    "github.com",
+    "*.github.com",
+    "*.githubusercontent.com",
+    "registry.npmjs.org",
+    "pypi.org",
+    "files.pythonhosted.org",
+  ]).describe("Domains sandboxed commands may reach when network is \"allowlist\"."),
+}).strict().prefault({});
+
 const uiConfigSchema = z.object({
   enabled: z.boolean().default(true),
 }).strict().prefault({});
@@ -91,6 +114,7 @@ export const devspaceConfigSchema = z.object({
   workspaces: workspacesConfigSchema,
   storage: storageConfigSchema,
   tools: toolsConfigSchema,
+  shell: shellConfigSchema,
   ui: uiConfigSchema,
   activity: activityConfigSchema,
   artifacts: artifactsConfigSchema,

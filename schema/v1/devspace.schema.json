@@ -111,6 +111,65 @@
       },
       "additionalProperties": false
     },
+    "shell": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "sandbox": {
+          "default": "off",
+          "description": "\"workspace\" runs bash and exec_command inside an OS sandbox that can write only the workspace and cannot read the rest of the home directory. \"off\" runs them with the local user's full authority.",
+          "type": "string",
+          "enum": [
+            "workspace",
+            "off"
+          ]
+        },
+        "network": {
+          "default": "full",
+          "description": "\"full\" leaves sandboxed commands with unrestricted network access. \"allowlist\" limits them to allowedDomains.",
+          "type": "string",
+          "enum": [
+            "full",
+            "allowlist"
+          ]
+        },
+        "allowRead": {
+          "default": [],
+          "description": "Extra paths sandboxed commands may read, in addition to the workspace and detected toolchains.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allowWrite": {
+          "default": [],
+          "description": "Extra paths sandboxed commands may read and write, in addition to the workspace and the temp directory.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allowedDomains": {
+          "default": [
+            "github.com",
+            "*.github.com",
+            "*.githubusercontent.com",
+            "registry.npmjs.org",
+            "pypi.org",
+            "files.pythonhosted.org"
+          ],
+          "description": "Domains sandboxed commands may reach when network is \"allowlist\".",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "ui": {
       "default": {},
       "type": "object",

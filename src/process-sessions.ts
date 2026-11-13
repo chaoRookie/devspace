@@ -2,6 +2,16 @@ import { optionalFields } from "./json-value.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
 import { resolveShellCommand, terminateProcessTree } from "./process-platform.js";
+import {
+  USER_NAMESPACE_DENIED_MESSAGE,
+  createUserNamespaceDenialDetector,
+} from "./sandbox-policy.js";
+import {
+  isShellSandboxed,
+  wrapShellCommand,
+  type ShellSandboxSettings,
+  type WrappedShellCommand,
+} from "./shell-sandbox.js";
 
 const DEFAULT_EXEC_YIELD_MS = 10_000;
 const DEFAULT_INTERACTIVE_YIELD_MS = 250;
@@ -33,6 +43,7 @@ export interface StartCommandInput {
   command: string;
   cwd: string;
   workspaceRoot?: string;
+  sandbox?: ShellSandboxSettings;
   tty?: boolean;
   columns?: number;
   rows?: number;
@@ -80,6 +91,8 @@ interface ProcessSession {
   exitPromise: Promise<void>;
   resolveExit: () => void;
   cleanupTimer?: NodeJS.Timeout;
+  release?: () => void;
+  denial?: ReturnType<typeof createUserNamespaceDenialDetector>;
 }
 
 interface ProcessSessionManagerOptions {
@@ -316,9 +329,13 @@ export class ProcessSessionManager {
     this.sessions.set(session.id, session);
 
     try {
-      if (input.tty && process.platform !== "win32") await this.startPty(session, input);
-      else this.startPipe(session, input);
+      const pty = Boolean(input.tty) && process.platform !== "win32";
+      const wrapped = await this.wrap(session, input, pty);
+
+      if (pty) await this.startPty(session, input, wrapped);
+      else this.startPipe(session, input, wrapped);
     } catch (error) {
+      session.release?.();
       this.sessions.delete(session.id);
       throw error;
     }
@@ -427,21 +444,54 @@ export class ProcessSessionManager {
     };
   }
 
-  private startPipe(session: ProcessSession, input: StartCommandInput): void {
+  private async wrap(
+    session: ProcessSession,
+    input: StartCommandInput,
+    pty: boolean,
+  ): Promise<WrappedShellCommand | undefined> {
+    const target = input.sandbox && input.workspaceRoot
+      ? { workspaceRoot: input.workspaceRoot, settings: input.sandbox }
+      : undefined;
+
+    if (input.sandbox?.mode === "workspace" && !target) {
+      throw new Error("The shell sandbox needs a workspace root to contain this command.");
+    }
+
+    if (!isShellSandboxed(target)) return undefined;
+    const wrapped = await wrapShellCommand(input.command, input.cwd, target, { pty });
+
+    session.release = wrapped.release;
+    session.denial = createUserNamespaceDenialDetector();
+
+    return wrapped;
+  }
+
+  private startPipe(session: ProcessSession, input: StartCommandInput, wrapped?: WrappedShellCommand): void {
     const shell = resolveShellCommand(input.command);
     const detached = process.platform !== "win32";
 
-    const child = spawn(input.command, {
-      cwd: input.cwd,
-      env: processEnvironment({
-        workspaceId: input.workspaceId,
-        workspaceRoot: input.workspaceRoot,
-      }),
-      stdio: "pipe",
-      windowsHide: true,
-      detached,
-      shell: shell.executable,
+    const environment = processEnvironment({
+      workspaceId: input.workspaceId,
+      workspaceRoot: input.workspaceRoot,
     });
+
+    const child = wrapped
+      ? spawn(wrapped.executable, wrapped.args, {
+        cwd: input.cwd,
+        env: { ...wrapped.env, ...environment },
+        stdio: "pipe",
+        windowsHide: true,
+        detached,
+        shell: false,
+      })
+      : spawn(input.command, {
+        cwd: input.cwd,
+        env: environment,
+        stdio: "pipe",
+        windowsHide: true,
+        detached,
+        shell: shell.executable,
+      });
 
     session.process = {
       write: (data) => child.stdin.write(data),
@@ -454,7 +504,11 @@ export class ProcessSessionManager {
     child.on("close", (code, signal) => this.finish(session, code ?? undefined, signal ?? undefined));
   }
 
-  private async startPty(session: ProcessSession, input: StartCommandInput): Promise<void> {
+  private async startPty(
+    session: ProcessSession,
+    input: StartCommandInput,
+    wrapped?: WrappedShellCommand,
+  ): Promise<void> {
     let nodePty: typeof import("@lydell/node-pty");
 
     try {
@@ -466,12 +520,14 @@ export class ProcessSessionManager {
     const shell = resolveShellCommand(input.command);
     let pty: import("@lydell/node-pty").IPty;
 
-    pty = nodePty.spawn(shell.executable, shell.args, {
+    const environment = processEnvironment({
+      workspaceId: input.workspaceId,
+      workspaceRoot: input.workspaceRoot,
+    });
+
+    pty = nodePty.spawn(wrapped?.executable ?? shell.executable, wrapped?.args ?? shell.args, {
       cwd: input.cwd,
-      env: processEnvironment({
-        workspaceId: input.workspaceId,
-        workspaceRoot: input.workspaceRoot,
-      }),
+      env: wrapped ? { ...wrapped.env, ...environment } : environment,
       name: "xterm-256color",
       cols: session.columns,
       rows: session.rows,
@@ -491,6 +547,9 @@ export class ProcessSessionManager {
   private finish(session: ProcessSession, exitCode?: number, signal?: string): void {
     if (!session.running) return;
     session.running = false;
+    session.release?.();
+
+    if (session.denial?.denied && exitCode !== 0) session.buffer.append(`${USER_NAMESPACE_DENIED_MESSAGE}\n`);
     session.exitCode = exitCode;
     session.signal = signal;
     session.resolveExit();
@@ -502,6 +561,7 @@ export class ProcessSessionManager {
   }
 
   private append(session: ProcessSession, output: string): void {
+    session.denial?.push(output);
     session.buffer.append(output);
   }
 

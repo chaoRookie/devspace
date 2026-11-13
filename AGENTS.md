@@ -39,7 +39,7 @@ Use these terms precisely. In particular, do not use workspace, allowed root, ch
 
 ## Security boundaries
 
-Filesystem tools enforce approved-root containment. Shell commands run with the local user's authority and are not a general sandbox. Never imply that shell execution is contained merely because file tools are contained.
+Filesystem tools enforce approved-root containment. Shell commands run with the local user's authority unless `shell.sandbox` is `"workspace"`, which wraps `bash` and `exec_command` in an OS sandbox scoped to the workspace root (`src/shell-sandbox.ts`). Never imply that shell execution is contained merely because file tools are contained; say which setting is in effect.
 
 Resolve and validate paths before destructive actions. Do not broaden an allowed root, delete application state, expose a credential, or replace an existing process as a convenient fix.
 
