@@ -193,6 +193,17 @@ test("a path listed in allowWrite is writable from the sandbox", { skip }, async
   assert.equal(existsSync(join(outside, "cache.txt")), true);
 });
 
+test("a command can write its temporary directory", { skip }, async (t) => {
+  const { workspace } = fixture(t);
+
+  const output = await bash(
+    "probe=\"$TMPDIR/devspace-tmp-probe-$$\"; echo tmp-ok > \"$probe\" && cat \"$probe\" && rm \"$probe\"",
+    workspace,
+  );
+
+  assert.match(output, /tmp-ok/);
+});
+
 test("full network keeps the filesystem contained without a network allowlist", { skip }, async (t) => {
   const { workspace, outside } = fixture(t);
 

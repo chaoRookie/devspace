@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import {
@@ -78,6 +78,10 @@ export function shellSandboxFilesystem(
   };
 }
 
+export function sandboxTemporaryDirectory(environment: NodeJS.ProcessEnv = process.env): string {
+  return environment.CLAUDE_CODE_TMPDIR || environment.CLAUDE_TMPDIR || "/tmp/claude";
+}
+
 export async function wrapShellCommand(
   command: string,
   cwd: string,
@@ -85,6 +89,7 @@ export async function wrapShellCommand(
   options: { pty?: boolean; signal?: AbortSignal } = {},
 ): Promise<WrappedShellCommand> {
   await ensureInitialized(target.settings);
+  mkdirSync(sandboxTemporaryDirectory(), { recursive: true });
 
   const customConfig: Partial<SandboxRuntimeConfig> = {
     filesystem: shellSandboxFilesystem(target.workspaceRoot, target.settings),
